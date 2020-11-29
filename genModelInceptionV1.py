@@ -1,6 +1,7 @@
 import numpy as np 
 import keras
 import glob
+import cv2
 import math
 import os
 import time
@@ -119,7 +120,7 @@ x = inception_module(x,
                      name='inception_4a')
 
 
-x1 = AveragePooling2D((5, 5), strides=3)(x)
+x1 = AveragePooling2D((3, 3), strides=3)(x)
 x1 = Conv2D(32, (1, 1), padding='same', activation='relu')(x1)
 x1 = Flatten()(x1)
 x1 = Dense(256, activation='relu')(x1)
@@ -155,7 +156,7 @@ x = inception_module(x,
                      name='inception_4d')
 
 
-x2 = AveragePooling2D((5, 5), strides=3)(x)
+x2 = AveragePooling2D((3, 3), strides=3)(x)
 x2 = Conv2D(32, (1, 1), padding='same', activation='relu')(x2)
 x2 = Flatten()(x2)
 x2 = Dense(256, activation='relu')(x2)
@@ -196,42 +197,42 @@ x = GlobalAveragePooling2D(name='avg_pool_5_3x3/1')(x)
 
 x = Dropout(0.4)(x)
 
-x = Dense(10, activation='softmax', name='output')(x)
+x = Dense(1, activation='sigmoid', name='output')(x)
 model = keras.Model(input_layer, [x, x1, x2], name='inception_v1')
 # model.summary()
 
 # checkpointer
-Checkpointer=ModelCheckpoint(
-        filepath=os.path.join('data','checkpoint','CNN'+'-'+\
-            '.{epoch:0.3d}-{val_loss:05d}.hd5f'),
+checkpointer = ModelCheckpoint(
+        filepath=os.path.join('data', 'checkpoints', 'CNN' + '-' + \
+            '.{epoch:03d}-{val_loss:.3f}.hdf5'),
         verbose=1,
-        save_best_only=True
-)
-# csv_logger
-timestamp=time.time()
-csv_logger=CSVLogger(os.path.join('data','logs','CNN'+'training'+\
-    str(timestamp)+'.logs'))
+        save_best_only=True)
 
-# tensorboard
-tb=TensorBoard(log_dir=os.path.join('data','logs','CNN'))
+# 
+timestamp = time.time()
+csv_logger = CSVLogger(os.path.join('data', 'logs', 'CNN' + '-' + 'training-' + \
+        str(timestamp) + '.log'))
 
-# earlystopping
-early_stopper=EarlyStopping(patience=10)
+# TensorBoard
+tb = TensorBoard(log_dir=os.path.join('data', 'logs', 'CNN'))
+# Early stopping
+early_stopper = EarlyStopping(patience=10)
+
 
 epochs=100
-batch_Size=16
+batch_size=16
 
 # Data Augmentation
-train_generator=ImageDataGenerator(rotation_range=2,horizontal_flip=Tru,zoom_range=.1)
-val_generator=ImageDataGenerator(rotation_range=2,horizontal_flip=Tru,zoom_range=.1)
-test_generator=ImageDataGenerator(rotation_range=2,horizontal_flip=Tru,zoom_range=.1)
+train_generator=ImageDataGenerator(rotation_range=2,horizontal_flip=True,zoom_range=.1)
+val_generator=ImageDataGenerator(rotation_range=2,horizontal_flip=True,zoom_range=.1)
+test_generator=ImageDataGenerator(rotation_range=2,horizontal_flip=True,zoom_range=.1)
 
 train_generator.fit(X_train)
 test_generator.fit(X_test)
 val_generator.fit(X_val)
 
 model.compile(loss='binary_crossentropy',optimizer='adam',metrics='accuracy')
-H=model.fit_generator(train_generator.flow(X_train, Y_train, batch_size=batch_size), epochs = epochs, validation_data = val_generator.flow(X_val, Y_val, batch_size=batch_size),  callbacks=[tb, early_stopper,csv_logger, checkpointer], verbose=1)
+H=model.fit_generator(train_generator.flow(X_train, Y_train, batch_size=batch_size), epochs = epochs, steps_per_epoch = X_train.shape[0]//batch_size, validation_data = val_generator.flow(X_val, Y_val, batch_size=batch_size), validation_steps = 250, callbacks=[tb, early_stopper,csv_logger, checkpointer], verbose=1)
 
 score=model.evaluate(X_test,Y_test,verbose=0)
 model.save('InceptionV1.h5')
