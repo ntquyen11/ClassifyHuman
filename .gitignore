@@ -1,2 +1,5 @@
 Human/
 Non-Human/
+data/
+__pycache__/
+
